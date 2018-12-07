@@ -1,0 +1,22 @@
+"""
+FASTA file parser
+"""
+
+__author__ = "Miguel Terol Espino"
+__date__ = "04/11/18"
+
+from Bio import SeqIO
+
+
+class FASTAParser:
+    """
+    Parser for FASTA files
+    """
+    FORMAT = "fasta"
+
+    def __init__(self):
+        self.parse = SeqIO.parse
+
+    def yield_parsed(self, filename):
+        """Yield parsed sequences"""
+        return [seq for seq in self.parse(filename, self.FORMAT)]

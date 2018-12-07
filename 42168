@@ -1,0 +1,572 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "slideshow": {
+     "slide_type": "-"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "from ipywidgets import interact, interactive, Image\n",
+    "import ipywidgets as widgets\n",
+    "from IPython.display import display, Markdown, IFrame\n",
+    "\n",
+    "__author__ = \"Miguel Terol Espino\"\n",
+    "__date__ = \"04/11/18\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "<div style=\"text-align: center\">\n",
+    "    <h1> BioInformatics 2018-2019 - Mini Project 2: Alignment and PSSM </h1>\n",
+    "</div>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "## Part 1 : Data collection\n",
+    "\n",
+    "### Part 1 - Method\n",
+    "\n",
+    "The reduced file of BROMO Homo Sapiens sequences was created by doing a comparison of each sequence to each other and evaluating the avergae similarity. This method assures us that no sequence will be aligned that is similar to the whole set of other sequences, but leaves the possibility of some sequences still being rather similar.\n",
+    "\n",
+    "A similar yet different method for the reduction would have been:\n",
+    "1. Randomly choose sequence from list of available and remove it from list of available\n",
+    "2. If set of chosen is empty, add to set and jump to 1, else continue\n",
+    "3. Compare chosen sequence to all sequences in set individually, if similarity always under 60%, add to set\n",
+    "4. Jump to 1\n",
+    "\n",
+    "This method would assure that not a single sequence will have a more than 60% match, since exclusion is done on first case basis and not due to average, but it would introduce a random seed bias and the possibility of different sets for different runs.\n",
+    "\n",
+    "Therefore to maintain stability and consensus of data accross all runs of the algorithms, some similarity possibility was sacrificed to maintain data that can be statically analyzed.\n",
+    "\n",
+    "Similarity was compared by using the Levenshtein distance algorithm.\n",
+    "\n",
+    "The class `FASTAParser` from the package `fastaParser` was created using the `biopython` package."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "slideshow": {
+     "slide_type": "subslide"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "\"\"\"\n",
+    "FASTA file parser\n",
+    "\"\"\"\n",
+    "\n",
+    "from Bio import SeqIO\n",
+    "\n",
+    "\n",
+    "class FASTAParser:\n",
+    "    \"\"\"\n",
+    "    Parser for FASTA files\n",
+    "    \"\"\"\n",
+    "    FORMAT = \"fasta\"\n",
+    "\n",
+    "    def __init__(self):\n",
+    "        self.parse = SeqIO.parse\n",
+    "\n",
+    "    def yield_parsed(self, filename):\n",
+    "        \"\"\"Yield parsed sequences\"\"\"\n",
+    "        return [seq for seq in self.parse(filename, self.FORMAT)]\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "The similarity comparison was done using the `Levenshtein` package."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "slideshow": {
+     "slide_type": "subslide"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "144 sequences were removed from list\n"
+     ]
+    }
+   ],
+   "source": [
+    "from fastaParser import FASTAParser\n",
+    "import Levenshtein\n",
+    "\n",
+    "\n",
+    "parser = FASTAParser()\n",
+    "sequences_gen = parser.yield_parsed(\"data/to-be-aligned.fasta\")\n",
+    "sequences = []\n",
+    "sequences_id = []\n",
+    "for seq in sequences_gen:\n",
+    "    sequences.append(seq.seq)\n",
+    "    sequences_id.append(seq.id)\n",
+    "\n",
+    "count = 0\n",
+    "with open(\"data/to-be-aligned-reduced.fasta\", \"w\") as output_handle:\n",
+    "    for i in range(len(sequences)):\n",
+    "        sum = 0\n",
+    "        if i < len(sequences):\n",
+    "            for j in range(len(sequences)):\n",
+    "                if j != i:\n",
+    "                    ratio = Levenshtein.ratio(str(sequences[i]), str(sequences[j]))\n",
+    "                    sum += ratio\n",
+    "            if sum/(len(sequences) -i) <= 0.6:\n",
+    "                SeqIO.write((sequences_gen[i]),output_handle, \"fasta\")\n",
+    "            else:\n",
+    "                count += 1\n",
+    "    print(count, \"sequences were removed from list\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "### Part 1 - Results\n",
+    "\n",
+    "The files `to-be-aligned.fasta` and `to-be-aligned-reduced.fasta` can be found under the `data` directory."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "## Part 2 : Multiple sequence alignment\n",
+    "\n",
+    "### Part 2 - Method\n",
+    "\n",
+    "The tool **CLUSTAL Omega** was used to align the sequences.\n",
+    "\n",
+    "### Part 2 - Results\n",
+    "\n",
+    "The files `msaresults-CLUSTALOmega.fasta` and `msaresults-reduced-CLUSTALOmega.fasta` can be found under the `data` directory."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "## Part 3 : Profile construction\n",
+    "\n",
+    "### Part 3 - Method\n",
+    "\n",
+    "To create the PSSMs the `biopython` package was used.\n",
+    "\n",
+    "The process was:\n",
+    "\n",
+    "1. Read the aligned MSA using the `AlignIO` library\n",
+    "2. Get the alignment information using the `AlignInfo` library\n",
+    "3. Use the libraries method, `pos_specific_score_matrix` to construct our PSSM\n",
+    "\n",
+    "Below each of the PSSMs the Weblogo constructed from the aligned MSA can be found."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "scrolled": false,
+    "slideshow": {
+     "slide_type": "subslide"
+    }
+   },
+   "outputs": [
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "603e6d8ed4204320a402d69ff5c9173c",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "interactive(children=(Dropdown(description='reducing', options=(('Reduced', True), ('Not reduced', False)), va…"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "from Bio import AlignIO\n",
+    "from Bio.Align import AlignInfo\n",
+    "\n",
+    "def get_pssm(reducing):\n",
+    "    if reducing:\n",
+    "        filename = \"data/msaresults-reduced-CLUSTALOmega.fasta\"\n",
+    "        logo = \"data/logo-msaresults-reduced-CLUSTALOmega.png\" \n",
+    "    else:\n",
+    "        filename = \"data/msaresults-CLUSTALOmega.fasta\"        \n",
+    "        logo = \"data/logo-msaresults-CLUSTALOmega.png\" \n",
+    "    alignment = AlignIO.read(filename, \"clustal\")\n",
+    "    summary_align = AlignInfo.SummaryInfo(alignment)\n",
+    "    consensus = summary_align.dumb_consensus(threshold=0.5)\n",
+    "    my_pssm = summary_align.pos_specific_score_matrix(consensus, chars_to_ignore=[\"-\"])\n",
+    "    print(my_pssm)\n",
+    "    display(Markdown(\"![Alt]({})\".format(logo)))\n",
+    "\n",
+    "interact(get_pssm, reducing=[('Reduced', True), ('Not reduced', False)]);\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "### Part 3 - Results\n",
+    "\n",
+    "#### Part 3.1 : Weblogos\n",
+    "\n",
+    "Weblogos where constructed through the the tool on the *threeplusone* website using the MSA results from **CLUSTAL Omga**\n",
+    "\n",
+    "<div>\n",
+    "    <div id=\"notreduced\" style=\"float: left; width: 45%;\">\n",
+    "        <h4> Weblogo of unreduced sequences alignment</h4>\n",
+    "        <img src=\"data/logo-msaresults-CLUSTALOmega.png\" >\n",
+    "        <p>\n",
+    "            From the results displayed on the weblogo we can see most conservation occurs around bits 145-195 with peaks at 45-65, 75-105 and 215-240. This corresponds to our PSSM matrix for the most part.\n",
+    "        </p>\n",
+    "    </div>\n",
+    "    <div id=\"reduced\" style=\"float: right; width: 45%;\">\n",
+    "        <h4> Weblogo of reduced sequences alignment</h4>\n",
+    "        <img src=\"data/logo-msaresults-reduced-CLUSTALOmega.png\" >\n",
+    "        <p>\n",
+    "            From the results displayed on the weblogo we can see most conservation occurs around bits 140-185 with peaks at 85-100 and 205-235. This corresponds to our PSSM matrix for the most part. It would seem a few scores of 1.0 are being omitted in the begging of the logo, this could be due to a threshold parametrisation in the application or an error in our calculations.\n",
+    "        </p>\n",
+    "    </div>\n",
+    "</div>\n",
+    "<div style=\"clear: both;\"></div>\n",
+    "\n",
+    "#### Part 3.2 : HMM logo\n",
+    "\n",
+    "HMM Bromo logo was obtained throught the resource provided at *pfam.xfam.org*. The logo is as follows:\n",
+    "\n",
+    "![](data/HMM-Bromo.png)\n",
+    "\n",
+    "The logo displays a clear similarity to our Weblogo of un-reduced sequences, whereas the reduced Weblogo has a few mismatchs,   introduced by creating our MSA on only a subset of the full family. On the other hand, the PSSM for the reduced sequences seems to follow more exactly the values of the HMM Logo."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "## Part 4 : Aligning the profile to the sequences\n",
+    "\n",
+    "### Part 4 - Method  and results\n",
+    "\n",
+    "#### Part 4.1 : Linear penalty\n",
+    "\n",
+    "Using the formula: $$ PEN'(p) = \\frac{YMAX}{(OPEN + EXN*L)}$$\n",
+    "\n",
+    "Where:\n",
+    "- $YMAX$ is the highest score in the PSSM\n",
+    "- $OPEN$ is the gap opening penalty\n",
+    "- $EXN$ is the gap extension penalty\n",
+    "- $L$ is number of residue positions in the gap"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {
+    "slideshow": {
+     "slide_type": "subslide"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "OPEN = 10\n",
+    "EXN = 0.5\n",
+    "def pen(pos, pssmMat):\n",
+    "    return pssmMat.max()/(OPEN + EXN*pssmMat.get_residue(p))    "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "#### Part 4.2 : Affine penalty\n",
+    "\n",
+    "Using the formula: $$ PEN'(p) = \\frac{YMAX}{(OPEN + EXN*LMAX(p))}$$\n",
+    "\n",
+    "Where:\n",
+    "- $YMAX$ is the highest score in the PSSM\n",
+    "- $OPEN$ is the gap opening penalty\n",
+    "- $EXN$ is the gap extension penalty\n",
+    "- $LMAX$ is the length of the longest gap that includes p"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {
+    "slideshow": {
+     "slide_type": "subslide"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "OPEN = 5\n",
+    "EXN = 0.1\n",
+    "def pen(pos, pssmMat):\n",
+    "    return pssmMat.max()/(OPEN + EXN*pssmMat.get_longest_gap_length(p))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "#### Part 4.3 : Protein sequence alignment\n",
+    "\n",
+    "Motif scan with the Bromo PSSM gives:\n",
+    "- FT   MYHIT       831    848      \n",
+    "- FT   MYHIT      1221   1238\n",
+    "\n",
+    "Meaning our domaines are found along those elements in traces."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "slideshow": {
+     "slide_type": "slide"
+    }
+   },
+   "source": [
+    "#### Part 4.4 : UNIPROT verify\n",
+    "\n",
+    "Alignment with **UNIPROT** gives:\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN MGPGCDLLLRTAATITAAAIMSDTDSDEDSAGGGPFSLAGFLFGNINGAGQLEGESVLDD 60\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ECKKHLAGLGALGLGSLITELTANEELTGTDGALVNDEGWVRSTEDAVDYSDINEVAEDE 120\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN SRRYQQTMGSLQPLCHSDYDEDDYDADCEDIDCKLMPPPPPPPGPMKKDKDQDSITGEKV 180\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN DFSSSSDSESEMGPQEATQAESEDGKLTLPLAGIMQHDATKLLPSVTELFPEFRPGKVLR 240\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN FLRLFGPGKNVPSVWRSARRKRKKKHRELIQEEQIQEVECSVESEVSQKSLWNYDYAPPP 300\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN PPEQCLSDDEITMMAPVESKFSQSTGDIDKVTDTKPRVAEWRYGPARLWYDMLGVPEDGS 360\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN GFDYGFKLRKTEHEPVIKSRMIEEFRKLEENNGTDLLADENFLMVTQLHWEDDIIWDGED 420\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN VKHKGTKPQRASLAGWLPSSMTRNAMAYNVQQGFAATLDDDKPWYSIFPIDNEDLVYGRW 480\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN EDNIIWDAQAMPRLLEPPVLTLDPNDENLILEIPDEKEEATSNSPSKESKKESSLKKSRI 540\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN LLGKTGVIKEEPQQNMSQPEVKDPWNLSNDEYYYPKQQGLRGTFGGNIIQHSIPAVELRQ 600\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN PFFPTHMGPIKLRQFHRPPLKKYSFGALSQPGPHSVQPLLKHIKKKAKMREQERQASGGG 660\n",
+    "    SP|Q86U86|PB1_HUMAN  ------------------------------------------------------------\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN EMFFMRTPQDLTGKDGDLILAEYSEENGPLMMQVGMATKIKNYYKRKPGKDPGAPDCKYG 720\n",
+    "    SP|Q86U86|PB1_HUMAN  -----------------------------------MGSK------RRRATSP-------- 11\n",
+    "                                                            *.:*      *: ...*        \n",
+    "    SP|P21675|TAF1_HUMAN ETVYCHTSPFLGSLHPGQLLQAFENNLFRAPIYLHKMPETDFLIIRTRQGYYIRELVDIF 780\n",
+    "    SP|Q86U86|PB1_HUMAN  ------SSSVSGDFD--------------------------------------------- 20\n",
+    "                               :* . *.:.                                             \n",
+    "    SP|P21675|TAF1_HUMAN VVGQQCPLFEVPGPNSKRANTH-----------------IRDFL---QVFIYRLFWKSKD 820\n",
+    "    SP|Q86U86|PB1_HUMAN  -DG--HHSVSTPGPSRKRRRLSNLPTVDPIAVCHELYNTIRDYKDEQGRLLCELFIRAPK 77\n",
+    "                           *     ...***. ** .                   ***:      :: .** :: .\n",
+    "    SP|P21675|TAF1_HUMAN RPRRIRMEDIKKAFPS-HSESSIRKRLKLCADFKRTGMDSNWWVLKSDFRLPTEEEI--R 877\n",
+    "    SP|Q86U86|PB1_HUMAN  RRNQ---PDYYEVVSQPIDLMKIQQKLKME-EYD------DVNLLTADFQLLFNNAKSYY 127\n",
+    "                         * .:    *  :.. .  .  .*:::**:  ::.      :  :*.:**:*  ::     \n",
+    "    SP|P21675|TAF1_HUMAN AMVS--PEQCCAYYSMIAAEQRLKDAGYGEKSFFAPEEENEEDFQMKIDDEVRTAPWNTT 935\n",
+    "    SP|Q86U86|PB1_HUMAN  KPDSPEYKAACKLWDLYLRTR---------NEFVQKGEADDEDDDEDGQDNQGTVTEGSS 178\n",
+    "                            *   : .*  :.:    :         :.*.   * ::** : . :*:  *.  .::\n",
+    "    SP|P21675|TAF1_HUMAN RAFIAAMKGKCLLEVTGVADPTGCGEGFSYVKIPNKPTQQKDDKEPQPVKKTVTGTDADL 995\n",
+    "    SP|Q86U86|PB1_HUMAN  PAYLKEILEQLLEAIVVATNPSGRLISELFQKLPSKVQ---------------------- 216\n",
+    "                          *::  :  : *  :. .::*:*   .  : *:*.*                        \n",
+    "    SP|P21675|TAF1_HUMAN RRLSLKNAKQLLRKFGVPEEEIKKLSRWEVIDVVRTMSTEQARSGEGPMS---KFARGSR 1052\n",
+    "    SP|Q86U86|PB1_HUMAN  ----------------YP-------DYYAIIKEPIDLKTIAQRIQNGSYKSIHAMAKDID 253\n",
+    "                                          *       . : :*.    :.*   *  :*  .    :*:.  \n",
+    "    SP|P21675|TAF1_HUMAN FSVAEHQERYKEECQRIFDLQNKVLSSTEVLSTDTDSSSAEDSDFEEMGKNIENMLQNKK 1112\n",
+    "    SP|Q86U86|PB1_HUMAN  -LLAKNAKTYNEPGSQVFKDANSIKKIFYMKKA--------EIEHHEMAKSSLRM----R 300\n",
+    "                           :*:: : *:*  .::*.  *.: .   : .:        : :..**.*.  .*    :\n",
+    "    SP|P21675|TAF1_HUMAN TSSQLSREREEQERKELQRMLLAAGSAASGNNHRDDDTASVTSLNSSATGRCLKIYRTFR 1172\n",
+    "    SP|Q86U86|PB1_HUMAN  TPSNLA------------A------ARLTGPSHSKGS------LGE-ERNPTSKYYRNKR 335\n",
+    "                         * *:*:                   :  :* .* ...      *..   .   * **. *\n",
+    "    SP|P21675|TAF1_HUMAN DEEGKEYVRC---------------------ET-VRKPAVIDAYVRIRTTKDEEFIRKFA 1210\n",
+    "    SP|Q86U86|PB1_HUMAN  AVQGGRLSAITMALQYGSESEEDAALAAARYEEGESEAESITSFMDVS----NPF---YQ 388\n",
+    "                           :* .                         *    :   * ::: :     : *   : \n",
+    "    SP|P21675|TAF1_HUMAN LFDEQHREEMRKERRRIQEQLRRLKRNQEKEKLKGPPEKKPKKMKERPDLKLKCGACGAI 1270\n",
+    "    SP|Q86U86|PB1_HUMAN  LYDT----------------VRSCRNNQ-GQLIA-----------------------EPF 408\n",
+    "                         *:*                 :*  :.**  : :                          :\n",
+    "    SP|P21675|TAF1_HUMAN GHMRTNKFCPLYYQTNAPPSNPVAMTEEQ-EEELEKTVIHND--------NEELIKVEGT 1321\n",
+    "    SP|Q86U86|PB1_HUMAN  YHLPSKKKYPDYYQQIKMPISLQQIRTKLKNQEYE-TLDHLECDLNLMFENAKRYNVPNS 467\n",
+    "                          *: ::*  * ***    * .   :  :  ::* * *: * :        * :  :* .:\n",
+    "    SP|P21675|TAF1_HUMAN KIVLGKQLIESADEVRRKSLVLKFPKQQLPPKKKRRVGTTVHC----D---YLNRPHKSI 1374\n",
+    "    SP|Q86U86|PB1_HUMAN  AIY--KRVLK-------LQQVMQAKKKELARRDDIEDGDSMISSATSDTGSAKRKSKKNI 518\n",
+    "                          *   *::::        . *::  *::*  :.. . * :: .    *     .: :*.*\n",
+    "    SP|P21675|TAF1_HUMAN HRRRTDPMVTLSSILESII-NDMRDLPNTYPFHTPVNAKVVKDYYKIITRPMDLQTLREN 1433\n",
+    "    SP|Q86U86|PB1_HUMAN  RKQRMKI--LFNVVLEAREPGSGRRLC--DLFMVKPSKKDYPDYYKIILEPMDLKIIEHN 574\n",
+    "                         :::* .    :. :**:   .. * *     * .  . *   ****** .****: :..*\n",
+    "    SP|P21675|TAF1_HUMAN VRKRLYPSREEFREHLELIVKNSATYNGPKHSLTQISQSMLDLCDEKLKEKEDKLARLEK 1493\n",
+    "    SP|Q86U86|PB1_HUMAN  IRNDKYAGEEGMIEDMKLMFRNARHYNEEGSQVYNDAHILEKL----LKEK-------RK 623\n",
+    "                         :*:  * ..* : *.::*:.:*:  **    .: : :: : .*    ****       .*\n",
+    "    SP|P21675|TAF1_HUMAN AINPLLDDDDQVAFSFILDNIV-------------TQKMM-------------AVPDSWP 1527\n",
+    "    SP|Q86U86|PB1_HUMAN  ELGPLPDDDDMASPKLKLSRKSGISPKKSKYMTPMQQKLNEVYEAVKNYTDKRGRRLSAI 683\n",
+    "                          :.** **** .: .: *..                **:              .   *  \n",
+    "    SP|P21675|TAF1_HUMAN FHHPVNKKFVPDYYKVIVNPMDLETIRKNISKHKYQSRESFLDDVNLILANSVKYNGPES 1587\n",
+    "    SP|Q86U86|PB1_HUMAN  FLRLPSRSELPDYYLTIKKPMDMEKIRSHMMANKYQDIDSMVEDFVMMFNNACTYNEPES 743\n",
+    "                         * :  .:. :**** .* :***:*.**.::  :***. :*:::*. ::: *: .** ***\n",
+    "    SP|P21675|TAF1_HUMAN QYTKTAQEIVNVCYQTLTEYDE----HLTQLE--------------------KDICTAKE 1623\n",
+    "    SP|Q86U86|PB1_HUMAN  LIYKDALVLHKVLLETRRDLEGDEDSHVPNVTLLIQELIHNLFVSVMSHQDDEGRCYSD- 802\n",
+    "                            * *  : :*  :*  : :     *: ::                     :. * :. \n",
+    "    SP|P21675|TAF1_HUMAN AALEEAELESLDPMTPGPYTPQPPDLYDT---NTSLSMSRDASVFQDESNMSVLDIPSAT 1680\n",
+    "    SP|Q86U86|PB1_HUMAN  ---SLAEIPAVDPN----FPNKPPLTFDIIRKNVENNRYRRLDLFQEHM-FEVLERARR- 853\n",
+    "                            . **: ::**     :  :**  :*    *.. .  *  .:**:.  :.**:     \n",
+    "    SP|P21675|TAF1_HUMAN PEKQVTQEGEDGDGDLADEEEGTVQQPQASVLYEDLLMSEGEDDEEDAGSDEEGDNPFSA 1740\n",
+    "    SP|Q86U86|PB1_HUMAN  ----MN----RTDSEIYE---DAVELQQFFIKIRDELCKNGEILLS----------P--A 890\n",
+    "                             :.      *.:: :   .:*:  *  :  .* * .:**   .          *  *\n",
+    "    SP|P21675|TAF1_HUMAN IQLSESGSDSDVGSGGIRPKQPRMLQENTR-MDMENEESMMSYEGDGGEASHGLEDSNIS 1799\n",
+    "    SP|Q86U86|PB1_HUMAN  LSYTTKHLHNDVEKE-RKEKLPKEIEEDKLKREEEKREAEKSEDSSGAAGLSGLHR---T 946\n",
+    "                         :. : .  ..** .   : * *: ::*:.   : *:.*:  * :..*. .  **.    :\n",
+    "    SP|P21675|TAF1_HUMAN YGSYEEPDPKSNTQDTSFSSIGGYEVSEEEEDEEEEEQRSGPSVLSQVHLSEDEED---- 1855\n",
+    "    SP|Q86U86|PB1_HUMAN  YSQ-------DCSFKNSMYHVGDYVYVEPAEA------NLQPHIVCIERLWEDSAGEKWL 993\n",
+    "                         *..       . : ..*:  :*.*   *  *       .  * ::.  :* **. .    \n",
+    "    SP|P21675|TAF1_HUMAN --------SEDFHS-----------------------IAGDS------------------ 1866\n",
+    "    SP|Q86U86|PB1_HUMAN  YGCWFYRPNETFHLATRKFLEKEVFKSDYYNKVPVSKILGKCVVMFVKEYFKLCPENFRD 1053\n",
+    "                                 .* **                        * *..                  \n",
+    "    SP|P21675|TAF1_HUMAN --------------------------------------------------------DLDS 1870\n",
+    "    SP|Q86U86|PB1_HUMAN  EDVFVCESRYSAKTKSFKKIKLWTMPISSVRFVPRDVPLPVVRVASVFANADKGDDEKNT 1113\n",
+    "                                                                                 : ::\n",
+    "    SP|P21675|TAF1_HUMAN DE---------------------------------------------------------- 1872\n",
+    "    SP|Q86U86|PB1_HUMAN  DNSEDSRAEDNFNLEKEKEDVPVEMSNGEPGCHYFEQLHYNDMWLKVGDCVFIKSHGLVR 1173\n",
+    "                         *:                                                          \n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  PRVGRIEKVWVRDGAAYFYGPIFIHPEETEHEPTKMFYKKEVFLSNLEETCPMTCILGKC 1233\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  AVLSFKDFLSCRPTEIPENDILLCESRYNESDKQMKKFKGLKRFSLSAKVVDDEIYYFRK 1293\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  PIVPQKEPSPLLEKKIQLLEAKFAELEGGDDDIEEMGEEDSEVIEPPSLPQLQTPLASEL 1353\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  DLMPYTPPQSTPKSAKGSAKKEGSKRKINMSGYILFSSEMRAVIKAQHPDYSFGELSRLV 1413\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  GTEWRNLETAKKAEYEERAAKVAEQQERERAAQQQQPSASPRAGTPVGALMGVVPPPTPM 1473\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  GMLNQQLTPVAGMMGGYPPGLPPLQGPVDGLVSMGSMQPLHPGGPPPHHLPPGVPGLPGI 1533\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  PPPGVMNQGVAPMVGTPAPGGSPYGQQVGVLGPPGQQAPPPYPGPHPAGPPVIQQPTTPM 1593\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  FVAPPPKTQRLLHSEAYLKYIEGLSAESNSISKWDQTLAARRRDVHLSKEQESRLPSHWL 1653\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN ------------------------------------\n",
+    "    SP|Q86U86|PB1_HUMAN  KSKGAHTTMADALWRLRDLMLRDTLNIRQAYNLENV 1689\n",
+    "    \n",
+    "Results from **UNIPROT** show the hidden Bromo motives in the region:\n",
+    "\n",
+    "    SP|P21675|TAF1_HUMAN KIVLGKQLIESADEVRRKSLVLKFPKQQLPPKKKRRVGTTVHC----D---YLNRPHKSI 1374\n",
+    "    SP|Q86U86|PB1_HUMAN  AIY--KRVLK-------LQQVMQAKKKELARRDDIEDGDSMISSATSDTGSAKRKSKKNI 518\n",
+    "                          *   *::::        . *::  *::*  :.. . * :: .    *     .: :*.*\n",
+    "                          \n",
+    "More specifically:\n",
+    "\n",
+    "    KIVLGKQLIESADEVRRKSLVLKFPKQQLPPKKKRRVGTTVHC----D---YLNRPHKSI 1374\n",
+    "                                 ^^^^^^^^\n",
+    "\n",
+    "This result shows that there is a large offset from our reduced PSSM and yet a stable similarity to our un-reduced PSSM.\n",
+    "\n",
+    "A point to make is that the secondary domain found by our PSSM is not found by **UNIPROT**.\n",
+    "\n",
+    "Given the state of the art technology and resources implemented on their side, we shall assume this is due to an optimisation in their algorithms and search methods that we were unable to accomplish."
+   ]
+  }
+ ],
+ "metadata": {
+  "celltoolbar": "Slideshow",
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.6.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

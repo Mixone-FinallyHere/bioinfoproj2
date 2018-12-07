@@ -1,0 +1,19 @@
+"""
+PSSM Construction
+"""
+from Bio import AlignIO
+from Bio.Align import AlignInfo
+from Bio.SubsMat.FreqTable import FreqTable
+
+__author__ = "Miguel Terol Espino"
+__date__ = "06/11/18"
+
+
+alignment = AlignIO.read("data/msaresults-reduced-CLUSTALOmega.fasta", "clustal")
+summary_align = AlignInfo.SummaryInfo(alignment)
+consensus = summary_align.dumb_consensus(threshold=0.5)
+my_pssm = summary_align.pos_specific_score_matrix(consensus, chars_to_ignore=["-"])
+print(my_pssm)
+
+print(summary_align.information_content(
+    e_freq_table=FreqTable(summary_align.replacement_dictionary(skip_chars=["-"]))))

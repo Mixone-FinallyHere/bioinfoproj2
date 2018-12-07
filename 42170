@@ -1,0 +1,37 @@
+"""
+Sequence alignment
+"""
+from Bio import SeqIO
+from fastaParser import FASTAParser
+import Levenshtein
+
+
+__author__ = "Miguel Terol Espino"
+__date__ = "04/11/18"
+
+
+parser = FASTAParser()
+sequences_gen = parser.yield_parsed("data/to-be-aligned.fasta")
+sequences = []
+sequences_id = []
+for seq in sequences_gen:
+    sequences.append(seq.seq)
+    sequences_id.append(seq.id)
+
+count = 0
+with open("data/to-be-aligned-reduced.fasta", "w") as output_handle:
+    for i in range(len(sequences)):
+        sum = 0
+        print("comparing", sequences_id[i])
+        if i < len(sequences):
+            for j in range(len(sequences)):
+                if j != i:
+                    ratio = Levenshtein.ratio(str(sequences[i]), str(sequences[j]))
+                    print("{:2f}%".format(ratio*100))
+                    sum += ratio
+            if sum/(len(sequences) -i) <= 0.6:
+                SeqIO.write((sequences_gen[i]),output_handle, "fasta")
+            else:
+                count += 1
+    print(count)
+
